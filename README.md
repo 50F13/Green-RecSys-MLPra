@@ -1,3 +1,6 @@
+Replication and Reproduction Project of the following Paper: https://arxiv.org/abs/2410.09359
+original code at: https://github.com/Ardalan224/RecSoGood2024.git
+
 # RecSoGood2024
 Sustainable Recommender Systems: Optimizing Dataset Size for Energy-Efficient Algorithm Performance
 
