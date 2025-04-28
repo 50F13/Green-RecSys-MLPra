@@ -8,7 +8,7 @@ Original file is located at
 """
 
 # Install necessary libraries
-!pip install recpack
+#!pip install recpack
 
 import recpack.pipelines as pipelines
 from recpack.scenarios import WeakGeneralization
@@ -22,89 +22,93 @@ np.random.seed(42)
 
 
 # Specify the path where the dataset should be saved
-dataset_path = '/content/drive/MyDrive/Master Thesis/Dataset/ml-1m/ratings.dat'
+dataset_path = 'Dataset\\ml-1m\\ratings.dat'
 
-# Load the dataset into a DataFrame directly
-column_names = ['user_id', 'item_id', 'rating', 'timestamp']
-ratings = pd.read_csv(dataset_path, sep='::', names=column_names, engine='python', usecols=['user_id', 'item_id', 'rating'])
+##### ------ ##### uncomment to preprocess the data, with comments: code uses saved preprocessed data at 'Dataset\\ml-1m\\preprocessed_ratings(for_RecPack).csv'
 
-print(len(ratings))
+# # Load the dataset into a DataFrame directly
+# column_names = ['user_id', 'item_id', 'rating', 'timestamp']
+# ratings = pd.read_csv(dataset_path, sep='::', names=column_names, engine='python', usecols=['user_id', 'item_id', 'rating'])
 
-# Rename columns to match RecPack expectations (if needed, but already matches)
-ratings = ratings.rename(columns={'user_id': 'user_id', 'item_id': 'item_id', 'rating': 'rating'})
-ratings = ratings.dropna(subset=['rating'])
+# print(len(ratings))
 
-# Display the first few rows of the DataFrame to confirm it loaded correctly
-print(ratings.head())
+# # Rename columns to match RecPack expectations (if needed, but already matches)
+# ratings = ratings.rename(columns={'user_id': 'user_id', 'item_id': 'item_id', 'rating': 'rating'})
+# ratings = ratings.dropna(subset=['rating'])
 
-# Inspect the ratings data
-print("Initial Ratings Data Inspection:")
-print("Number of interactions:", len(ratings))
-print("Number of unique users:", ratings['user_id'].nunique())
-print("Number of unique items:", ratings['item_id'].nunique())
+# # Display the first few rows of the DataFrame to confirm it loaded correctly
+# print(ratings.head())
 
-# Check for users and items with fewer than 10 interactions
-user_counts = ratings['user_id'].value_counts()
-item_counts = ratings['item_id'].value_counts()
+# # Inspect the ratings data
+# print("Initial Ratings Data Inspection:")
+# print("Number of interactions:", len(ratings))
+# print("Number of unique users:", ratings['user_id'].nunique())
+# print("Number of unique items:", ratings['item_id'].nunique())
 
-print("\nUsers with fewer than 10 interactions:", (user_counts < 10).sum())
-print("Items with fewer than 10 interactions:", (item_counts < 10).sum())
+# # Check for users and items with fewer than 10 interactions
+# user_counts = ratings['user_id'].value_counts()
+# item_counts = ratings['item_id'].value_counts()
 
-# Check for empty rows
-empty_rows = ratings.isnull().sum().sum()
-print("\nNumber of empty rows:", empty_rows)
+# print("\nUsers with fewer than 10 interactions:", (user_counts < 10).sum())
+# print("Items with fewer than 10 interactions:", (item_counts < 10).sum())
 
-# Check for duplicate rows
-duplicate_rows = ratings.duplicated().sum()
-print("Number of duplicate rows:", duplicate_rows)
-# Check for duplicate ratings (same user, same item)
-duplicate_ratings = ratings.duplicated(subset=['user_id', 'item_id']).sum()
-print("Number of duplicate ratings (same user, same item):", duplicate_ratings)
+# # Check for empty rows
+# empty_rows = ratings.isnull().sum().sum()
+# print("\nNumber of empty rows:", empty_rows)
 
-# Remove duplicate rows
-ratings = ratings.drop_duplicates()
-# Aggregate duplicate ratings (same user, same item) by averaging their ratings
-ratings = ratings.groupby(['user_id', 'item_id'], as_index=False)['rating'].mean()
+# # Check for duplicate rows
+# duplicate_rows = ratings.duplicated().sum()
+# print("Number of duplicate rows:", duplicate_rows)
+# # Check for duplicate ratings (same user, same item)
+# duplicate_ratings = ratings.duplicated(subset=['user_id', 'item_id']).sum()
+# print("Number of duplicate ratings (same user, same item):", duplicate_ratings)
 
-# Check for empty rows after cleaning
-empty_rows = ratings.isnull().sum().sum()
-print("\nNumber of empty rows after cleaning:", empty_rows)
+# # Remove duplicate rows
+# ratings = ratings.drop_duplicates()
+# # Aggregate duplicate ratings (same user, same item) by averaging their ratings
+# ratings = ratings.groupby(['user_id', 'item_id'], as_index=False)['rating'].mean()
 
-# Check for duplicate rows after cleaning
-duplicate_rows = ratings.duplicated().sum()
-print("Number of duplicate rows after cleaning:", duplicate_rows)
+# # Check for empty rows after cleaning
+# empty_rows = ratings.isnull().sum().sum()
+# print("\nNumber of empty rows after cleaning:", empty_rows)
 
-# Check for duplicate ratings (same user, same item) after cleaning
-duplicate_ratings = ratings.duplicated(subset=['user_id', 'item_id']).sum()
-print("Number of duplicate ratings (same user, same item) after cleaning:", duplicate_ratings)
+# # Check for duplicate rows after cleaning
+# duplicate_rows = ratings.duplicated().sum()
+# print("Number of duplicate rows after cleaning:", duplicate_rows)
 
-print(len(ratings))
+# # Check for duplicate ratings (same user, same item) after cleaning
+# duplicate_ratings = ratings.duplicated(subset=['user_id', 'item_id']).sum()
+# print("Number of duplicate ratings (same user, same item) after cleaning:", duplicate_ratings)
 
-# 10-core pruning
-def prune_10_core(data):
-    while True:
-        # Filter users with fewer than 10 interactions
-        user_counts = data['user_id'].value_counts()
-        valid_users = user_counts[user_counts >= 10].index
-        data = data[data['user_id'].isin(valid_users)]
+# print(len(ratings))
 
-        # Filter items with fewer than 10 interactions
-        item_counts = data['item_id'].value_counts()
-        valid_items = item_counts[item_counts >= 10].index
-        data = data[data['item_id'].isin(valid_items)]
+# # 10-core pruning
+# def prune_10_core(data):
+#     while True:
+#         # Filter users with fewer than 10 interactions
+#         user_counts = data['user_id'].value_counts()
+#         valid_users = user_counts[user_counts >= 10].index
+#         data = data[data['user_id'].isin(valid_users)]
 
-        # Check if no more pruning is needed
-        if all(user_counts >= 10) and all(item_counts >= 10):
-            break
-    return data
-# Apply 10-core pruning
-ratings = prune_10_core(ratings)
+#         # Filter items with fewer than 10 interactions
+#         item_counts = data['item_id'].value_counts()
+#         valid_items = item_counts[item_counts >= 10].index
+#         data = data[data['item_id'].isin(valid_items)]
 
-print(len(ratings))
+#         # Check if no more pruning is needed
+#         if all(user_counts >= 10) and all(item_counts >= 10):
+#             break
+#     return data
+# # Apply 10-core pruning
+# ratings = prune_10_core(ratings)
+
+# print(len(ratings))
+
+##### ------- ######
 
 # Save the preprocessed DataFrame to a new CSV file
-preprocessed_file_path = '/content/drive/MyDrive/Master Thesis/Dataset/ml-1m/preprocessed_ratings(for_RecPack).csv'
-ratings.to_csv(preprocessed_file_path, index=False)
+preprocessed_file_path = 'Dataset\\ml-1m\\preprocessed_ratings(for_RecPack).csv'
+## ratings.to_csv(preprocessed_file_path, index=False)
 
 # Create an instance of MovieLens1M with the preprocessed file
 class CustomMovieLens1M(MovieLens1M):
@@ -114,6 +118,8 @@ class CustomMovieLens1M(MovieLens1M):
 # Preprocess the data using RecPack
 proc = DataFramePreprocessor(item_ix='item_id', user_ix='user_id')
 # Process the DataFrame to get the interaction matrix
+
+ratings = pd.read_csv(preprocessed_file_path)
 interaction_matrix = proc.process(ratings)
 
 # Print the number of interactions, users, and items before splitting
@@ -168,8 +174,9 @@ print("Number of unique users in test set:", len(test_out_interactions.active_us
 print("Number of unique items in test set:", len(test_out_interactions.active_items))
 
 # Downsampling training set (Again, fraction value is different to maintatin the 50-50 split ration in this case correctly (due to rounding up effect))
-# Amazon_Toys and Games:  10% = 0.096....20% = 0.196....30% = 0.296....40% = 0.396....50% = 0.497....60% = 0.596....70% = 0.696....80% = 0.796....90% = 0.896...100% = 1.0
-downsample_fraction = 1.0
+# Amazon_Toys and Games:  10% = 0.096....20% = 0.196....30% = 0.296....40% = 0.396....50% = 0.497....
+# 60% = 0.596....70% = 0.696....80% = 0.796....90% = 0.896...100% = 1.0
+downsample_fraction = 0.296
 additional_split_scenario = WeakGeneralization(frac_data_in=downsample_fraction, validation=False, seed=42)
 additional_split_scenario.split(train_interactions)
 
