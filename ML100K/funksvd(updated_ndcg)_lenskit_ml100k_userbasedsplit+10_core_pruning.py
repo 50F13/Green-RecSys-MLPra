@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1csv52AjwSSfkcRbfaXrDRgq5R-zlqsvd
 """
 
-!pip install lenskit
+# !pip install lenskit
 
 from lenskit import batch, topn, util
 from lenskit import crossfold as xf
@@ -79,7 +79,7 @@ class nDCG_LK:
 seedbank.initialize(42)
 
 # Load and preprocess the dataset
-file_path = '/content/drive/MyDrive/Master Thesis/Dataset/ml-100k'
+file_path = '/home/sofie/ml-100k'
 ml100k = ML100K(file_path)
 ratings = ml100k.ratings
 
@@ -178,7 +178,7 @@ print("Validation Data - Number of Users:", validation_data['user'].nunique())
 print("Final Test Data - Number of Users:", final_test_data['user'].nunique())
 
 # Downsample the training set to different% of interactions for each user using xf.SampleFrac
-downsample_method = xf.SampleFrac(1.0 - 0.1, rng_spec=42)
+downsample_method = xf.SampleFrac(1.0 - 0.4, rng_spec=42)
 downsampled_train_parts = []
 
 for i, tp in enumerate(xf.partition_users(pure_train_data, 1, downsample_method)):
@@ -202,7 +202,7 @@ def evaluate_with_ndcg(aname, algo, train, valid):
     fittable = Recommender.adapt(fittable)
     fittable.fit(train)
     users = valid.user.unique()
-    recs = batch.recommend(fittable, users, 10)
+    recs = batch.recommend(fittable, users, 10, n_jobs=1)
     recs['Algorithm'] = aname
 
     total_ndcg = 0
