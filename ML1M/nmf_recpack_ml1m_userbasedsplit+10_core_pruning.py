@@ -8,7 +8,7 @@ Original file is located at
 """
 
 # Install necessary libraries
-!pip install recpack
+# !pip install recpack
 
 import recpack.pipelines as pipelines
 from recpack.scenarios import WeakGeneralization
@@ -23,7 +23,7 @@ np.random.seed(42)
 
 
 # Specify the path where the dataset should be saved
-dataset_path = '/content/drive/MyDrive/Master Thesis/Dataset/ml-1m/ratings.dat'
+dataset_path = '/home/sofie/ml-1m/ratings.dat'
 
 # Load the dataset into a DataFrame directly
 column_names = ['user_id', 'item_id', 'rating', 'timestamp']
@@ -104,7 +104,7 @@ ratings = prune_10_core(ratings)
 print(len(ratings))
 
 # Save the preprocessed DataFrame to a new CSV file
-preprocessed_file_path = '/content/drive/MyDrive/Master Thesis/Dataset/ml-1m/preprocessed_ratings(for_RecPack).csv'
+preprocessed_file_path = '/home/sofie/ml-1m/preprocessed_ratings(for_RecPack).csv'
 ratings.to_csv(preprocessed_file_path, index=False)
 
 # Create an instance of MovieLens1M with the preprocessed file
@@ -170,8 +170,9 @@ print("Number of unique users in test set:", len(test_out_interactions.active_us
 print("Number of unique items in test set:", len(test_out_interactions.active_items))
 
 # Downsampling training set (Again, fraction value is different to maintatin the 50-50 split ration in this case correctly (due to rounding up effect))
-# Amazon_Toys and Games:  10% = 0.096....20% = 0.196....30% = 0.296....40% = 0.396....50% = 0.497....60% = 0.596....70% = 0.696....80% = 0.796....90% = 0.896...100% = 1.0
-downsample_fraction = 1.0
+# Amazon_Toys and Games:  10% = 0.096....20% = 0.196....30% = 0.296....40% = 0.396....50% = 0.497....
+# 60% = 0.596....70% = 0.696....80% = 0.796....90% = 0.896...100% = 1.0
+downsample_fraction = 0.096
 additional_split_scenario = WeakGeneralization(frac_data_in=downsample_fraction, validation=False, seed=42)
 additional_split_scenario.split(train_interactions)
 

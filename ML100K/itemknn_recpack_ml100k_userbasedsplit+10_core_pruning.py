@@ -22,7 +22,9 @@ np.random.seed(42)
 
 
 # Specify the path where the dataset should be saved
-dataset_path = 'Dataset\\ml-100k\\u.data'
+dataset_path = '/home/sofie/ml-100k/u.data'
+
+##### ------- Comment/Uncomment for preprocessing ------- #####
 
 # Load the dataset into a DataFrame directly
 column_names = ['user_id', 'item_id', 'rating', 'timestamp']
@@ -99,9 +101,13 @@ ratings = prune_10_core(ratings)
 
 print(len(ratings))
 
+########## --------- ##########
+
 # Save the preprocessed DataFrame to a new CSV file
-preprocessed_file_path = 'Dataset\\ml-100k\\preprocessed_ratings(for_RecPack).csv'
-ratings.to_csv(preprocessed_file_path, index=False)
+preprocessed_file_path = '/home/sofie/ml-100k/preprocessed_ratings(for_RecPack).csv'
+# ratings.to_csv(preprocessed_file_path, index=False) # uncomment for preprocessing
+
+ratings = pd.read_csv(preprocessed_file_path) # comment for preprocessing
 
 # Create an instance of MovieLens100K with the preprocessed file
 class CustomMovieLens100K(MovieLens100K):
@@ -168,7 +174,7 @@ print("Number of unique items in test set:", len(test_out_interactions.active_it
 
 # Downsampling training set (Again, fraction value is different to maintatin the 50-50 split ration in this case correctly (due to rounding up effect))
 # Amazon_Toys and Games:  10% = 0.094....20% = 0.194....30% = 0.294....40% = 0.394....50% = 0.495....60% = 0.594....70% = 0.694....80% = 0.794....90% = 0.894...100% = 1.0
-downsample_fraction = 0.094
+downsample_fraction = 0.894
 additional_split_scenario = WeakGeneralization(frac_data_in=downsample_fraction, validation=False, seed=42)
 additional_split_scenario.split(train_interactions)
 
