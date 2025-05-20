@@ -10,6 +10,8 @@ from lenskit.splitting import SampleFrac, crossfold_users
 
 import numpy as np
 
+
+# nDCG calculation from original code
 class nDCG_LK:
     def __init__(self, n, top_items, test_items):
         self.n = n
