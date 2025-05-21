@@ -2,9 +2,9 @@
 
 from lenskit.als import BiasedMFScorer
 from lenskit.batch import recommend
-from lenskit.data import ItemListCollection, UserIDKey, load_movielens
+from lenskit.data import ItemListCollection, UserIDKey, load_movielens, Dataset, DatasetBuilder
 from lenskit.knn import ItemKNNScorer
-from lenskit.metrics import NDCG, RBP, RecipRank, RunAnalysis
+from lenskit.metrics import NDCG, RBP, RecipRank, RunAnalysis, ListLength
 from lenskit.pipeline import topn_pipeline
 from lenskit.splitting import SampleFrac, crossfold_users
 
@@ -50,59 +50,113 @@ class nDCG_LK:
 # TODO: add random seed
 ml100k = load_movielens("Dataset/ml-100k")
 
-# TODO add information about the data --> print interactions, users, items, etc.
-# TODO prune data
+def main():
 
-# TODO add random seed
-final_test_method = SampleFrac(0.10) # holdout method for final test (here 10% of the data)
-
-# Initialize lists for training and test data
-train_data = ItemListCollection(UserIDKey)
-final_test_data = ItemListCollection(UserIDKey)
-
-# Split data into train and test sets
-for split in crossfold_users(ml100k, 1, final_test_method):
-    train_data.add_from(split.train)
-    final_test_data.add_from(split.test)
-
-# TODO add random seed to SampleFrac
-validation_split_method = SampleFrac(0.1111) # holdout method for validation split (here 11.11% of the training data)
-
-# Initialize lists for pure training set and validation set
-pure_train_data = ItemListCollection(UserIDKey)
-validation_data = ItemListCollection(UserIDKey)
-
-# Split train data into pure train set and validation set
-for split in crossfold_users(train_data, 1, validation_split_method):
-    pure_train_data.add_from(split.train)
-    validation_data.add_from(split.test)
-
-# TODO show information of the data sets: print number of interactions and users
-
-# Downsample the data into different percentages of the training data
-# TODO add random seed
-downsample_method = SampleFrac(1.0 - 0.5)
-
-downsampled_train_data = ItemListCollection(UserIDKey)
+    # TODO add information about the data --> print interactions, users, items, etc.
+    # TODO prune data
 
 
-for split in crossfold_users(pure_train_data, 1, downsample_method):
-    downsampled_train_data.add_from(split.train)
+    # TODO add random seed
+    final_test_method = SampleFrac(0.10) # holdout method for final test (here 10% of the data)
 
-# TODO show information of the downsampled data
+    # Initialize lists for training and test data
+    final_test_data = ItemListCollection(UserIDKey)
 
-k_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 130, 150, 180, 200, 220, 240, 260, 280]
+    # Split data into train and test sets
+    for split in crossfold_users(ml100k, 1, final_test_method):
+        train_data_builder = DatasetBuilder(split.train)
+        final_test_data.add_from(split.test)
+
+    train_data = train_data_builder.build()
+
+    # TODO add random seed to SampleFrac
+    validation_split_method = SampleFrac(0.1111) # holdout method for validation split (here 11.11% of the training data)
+
+    # Initialize lists for pure training set and validation set
+    validation_data = ItemListCollection(UserIDKey)
+
+    # Split train data into pure train set and validation set
+    for split in crossfold_users(train_data, 1, validation_split_method):
+        pure_train_data_builder = DatasetBuilder(split.train)
+        validation_data.add_from(split.test)
+
+    pure_train_data = pure_train_data_builder.build()
+
+    # TODO show information of the data sets: print number of interactions and users
+
+    # Downsample the data into different percentages of the training data
+    # TODO add random seed
+    downsample_method = SampleFrac(1.0 - 0.5)
+
+    for split in crossfold_users(pure_train_data, 1, downsample_method):
+        downsampled_train_data_builder = DatasetBuilder(split.train)
+
+    downsampled_train_data = downsampled_train_data_builder.build()
+
+    # TODO show information of the downsampled data
+    
 
 
-for k in k_values:
-    model_iknn = ItemKNNScorer(k=k)
-    pipe_iknn = topn_pipeline(model_iknn)
+    # function that trains the pipeline and then evaluates the results with the updated nDCG from the original code
+    def evaluate_with_ndcg(pipe, train_data, valid_data):
+        # train pipeline
+        fit_pipe = pipe.clone()
+        fit_pipe.train(train_data)
+        users = valid_data.keys()
+        # generate recommendations for the validation data
+        recs = recommend(fit_pipe, users, 10)
 
-    # train model with downsampled data (new clone for each split)
-    fit_iknn = pipe_iknn.clone()
-    fit_iknn.train(downsampled_train_data)
+        total_ndcg = 0
+        mean_ndcg = 0
 
-    # generate recommendations
-    recs = recommend(fit_iknn, validation_data.keys(), 10)
+        # calculate ndcg for the recommendations
+        for user in users:
+            user_recs = recs.lookup(user)
+            user_truth = valid_data.lookup(user)
+            ndcg_score = nDCG_LK(10, user_recs, user_truth).calculate()
+            total_ndcg += ndcg_score
+        
+        mean_ndcg = total_ndcg / valid_data.__len__()
+        return mean_ndcg
+    
+
+    k_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 130, 150, 180, 200, 220, 240, 260, 280]
+    results = []
+    best_k = None
+    best_mean_ndcg = -float('inf') # initialized to negative infinity (first ndcg value will be better)
+
+    for k_kandidate in k_values:
+        # create model and pipeline for item knn
+        model_iknn = ItemKNNScorer(k=k_kandidate)
+        pipe_iknn = topn_pipeline(model_iknn)
+        
+        # run the pipeline with training and validation data
+        mean_ndcg = evaluate_with_ndcg(pipe_iknn, downsampled_train_data, validation_data)
+
+        # document the results
+        results.append({'K': k_kandidate, 'Mean nDCG': mean_ndcg})
+
+        # evaluate the best k
+        if mean_ndcg > best_mean_ndcg:
+            best_mean_ndcg = mean_ndcg
+            best_k = k_kandidate
+
+    # print the results
+    print("Results:")
+    for result in results:
+        print(f"K = {result['K']}: Mean nDCG = {result['Mean nDCG']:.4f}")
+
+    print(f"\nBest K: {best_k} (Mean nDCG = {best_mean_ndcg:.4f})")
+
+    # build the final model and pipeline for the test data
+    final_model = ItemKNNScorer(k=best_k)
+    final_pipe = topn_pipeline(final_model)
+
+    mean_ndcg = evaluate_with_ndcg(final_pipe, downsampled_train_data, final_test_data)
+
+    # print the results of the recommendation for the final test data
+    print(f"nDCG mean for test set: {mean_ndcg:.4f}")
 
 
+if __name__ == "__main__":
+    main()
