@@ -95,10 +95,12 @@ def main():
 
     # TODO show information of the downsampled data
     
-
+    # users = validation_data.keys()
+    # for user in users:
+    #     print(validation_data.lookup())
 
     # function that trains the pipeline and then evaluates the results with the updated nDCG from the original code
-    def evaluate_with_ndcg(pipe, train_data, valid_data):
+    def evaluate_with_ndcg(pipe, train_data, valid_data, k_value):
         # train pipeline
         fit_pipe = pipe.clone()
         fit_pipe.train(train_data)
@@ -106,17 +108,34 @@ def main():
         # generate recommendations for the validation data
         recs = recommend(fit_pipe, users, 10)
 
-        total_ndcg = 0
-        mean_ndcg = 0
+        ran = RunAnalysis()
+        ran.add_metric(NDCG(k_value))
+        ndcg_result = ran.measure(recs, valid_data)
+        list_metrics = ndcg_result.list_metrics()
+        # print(f"List metrics: {list_metrics}")
+        list_summary = ndcg_result.list_summary()
+        # print(f"List summary: {list_summary}")
 
-        # calculate ndcg for the recommendations
-        for user in users:
-            user_recs = recs.lookup(user)
-            user_truth = valid_data.lookup(user)
-            ndcg_score = nDCG_LK(10, user_recs, user_truth).calculate()
-            total_ndcg += ndcg_score
+
+        mean_ndcg = list_summary.iloc[0, 0] # accesses the mean value of the ndcg measure for the recommendations
+        # print(f"mean_ndcg: {mean_ndcg}")
+
+        # ndcg_result = NDCG.measure_list()
+
+
+        # total_ndcg = 0
+        # mean_ndcg = 0
+
+        # # calculate ndcg for the recommendations
+        # for user in users:
+        #     user_recs = recs.lookup(user)
+        #     user_truth = valid_data.lookup(user)
+        #     ndcg_score = nDCG_LK(10, user_recs, user_truth).calculate()
+        #     total_ndcg += ndcg_score
         
-        mean_ndcg = total_ndcg / valid_data.__len__()
+        # mean_ndcg = total_ndcg / valid_data.__len__()
+
+
         return mean_ndcg
     
 
@@ -131,7 +150,7 @@ def main():
         pipe_iknn = topn_pipeline(model_iknn)
         
         # run the pipeline with training and validation data
-        mean_ndcg = evaluate_with_ndcg(pipe_iknn, downsampled_train_data, validation_data)
+        mean_ndcg = evaluate_with_ndcg(pipe_iknn, downsampled_train_data, validation_data, k_kandidate)
 
         # document the results
         results.append({'K': k_kandidate, 'Mean nDCG': mean_ndcg})
@@ -152,10 +171,10 @@ def main():
     final_model = ItemKNNScorer(k=best_k)
     final_pipe = topn_pipeline(final_model)
 
-    mean_ndcg = evaluate_with_ndcg(final_pipe, downsampled_train_data, final_test_data)
+    final_mean_ndcg = evaluate_with_ndcg(final_pipe, downsampled_train_data, final_test_data, best_k)
 
     # print the results of the recommendation for the final test data
-    print(f"nDCG mean for test set: {mean_ndcg:.4f}")
+    print(f"nDCG mean for test set: {final_mean_ndcg:.4f}")
 
 
 if __name__ == "__main__":
