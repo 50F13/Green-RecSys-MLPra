@@ -56,8 +56,20 @@ ml100k = load_movielens("Dataset/ml-100k")
 
 def main():
 
-    # TODO add information about the data --> print interactions, users, items, etc.
+    # data inspection before pruning
+    print("Initial Ratings Data Inspection:")
+    print("Number of interactions:", ml100k.interaction_count)
+    print("Number of unique users:", ml100k.user_count)
+    print("Number of unique items:", ml100k.item_count)
+
+    # TODO check users with fewer than 10 interactions
+    # TODO check for empty rows
+    # TODO check for duplicate rows
+    # TODO check for duplicate ratings
+
     # TODO prune data
+
+    # TODO check data after pruning
 
     # holdout method for final test (here 10% of the data)
     final_test_method = SampleFrac(0.10, rng = seed_int)
@@ -88,7 +100,21 @@ def main():
     # creates the pure train data set
     pure_train_data = pure_train_data_builder.build()
 
-    # TODO show information of the data sets: print number of interactions and users
+    # function for counting the number of user item interactions in an ItemListCollection
+    def total_interactions(ilc: ItemListCollection):
+        return sum(len(ilc.lookup(user)) for user in ilc.keys())
+
+
+    # data inspection before downsampling
+    print("\nBefore Downsampling/Splitting:")
+    print("Pure Train Data - Number of Interactions:", pure_train_data.interaction_count)
+    print("Validation Data - Number of Interactions:", total_interactions(validation_data)) # TODO
+    print("Final Test Data - Number of Interactions:", total_interactions(final_test_data)) # TODO
+
+    print("Pure Train Data - Number of Users:", pure_train_data.user_count)
+    print("Validation Data - Number of Users:", len(validation_data))
+    print("Final Test Data - Number of Users:", len(final_test_data))
+
 
     # Downsample the data into different percentages of the training data
     downsample_method = SampleFrac(1.0 - 0.5, rng = seed_int)
@@ -100,7 +126,16 @@ def main():
     # creates the downsampled dataset
     downsampled_train_data = downsampled_train_data_builder.build()
 
-    # TODO show information of the downsampled data
+    # data inspection after downsampling
+    print("\nAfter Downsampling:")
+    print("Downsampled Train Data - Number of Interactions:", downsampled_train_data.interaction_count)
+    print("Validation Data - Number of Interactions:", total_interactions(validation_data))
+    print("Final Test Data - Number of Interactions:", total_interactions(final_test_data))
+
+    print("Downsampled Train Data - Number of Users:", downsampled_train_data.user_count)
+    print("Validation Data - Number of Users:", len(validation_data))
+    print("Final Test Data - Number of Users:", len(final_test_data))
+
 
     # function that trains the pipeline and then evaluates the results
     def evaluate_with_ndcg(pipe, train_data, valid_data):
