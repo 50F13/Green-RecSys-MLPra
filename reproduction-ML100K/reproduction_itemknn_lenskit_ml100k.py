@@ -3,7 +3,7 @@
 from lenskit.als import BiasedMFScorer
 from lenskit.batch import recommend
 from lenskit.data import ItemListCollection, UserIDKey, load_movielens, Dataset, DatasetBuilder, from_interactions_df
-from lenskit.knn import ItemKNNScorer
+from lenskit.knn import ItemKNNScorer, ItemKNNConfig
 from lenskit.metrics import NDCG, RBP, RecipRank, RunAnalysis, ListLength
 from lenskit.pipeline import topn_pipeline, Pipeline
 from lenskit.splitting import SampleFrac, crossfold_users
@@ -149,94 +149,102 @@ def main():
     # data inspection before downsampling
     print("\nBefore Downsampling/Splitting:")
     print("Pure Train Data - Number of Interactions:", pure_train_data.interaction_count)
-    print("Validation Data - Number of Interactions:", total_interactions(validation_data)) # TODO
-    print("Final Test Data - Number of Interactions:", total_interactions(final_test_data)) # TODO
+    print("Validation Data - Number of Interactions:", total_interactions(validation_data))
+    print("Final Test Data - Number of Interactions:", total_interactions(final_test_data))
 
     print("Pure Train Data - Number of Users:", pure_train_data.user_count)
     print("Validation Data - Number of Users:", len(validation_data))
     print("Final Test Data - Number of Users:", len(final_test_data))
 
+    downsample_fractions = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    results_downsampling = []
+    for fraction in downsample_fractions:
 
-    # Downsample the data into different percentages of the training data
-    downsample_method = SampleFrac(1.0 - 0.5, rng = seed_int)
+        # Downsample the data into different percentages of the training data
+        downsample_method = SampleFrac(1.0 - fraction, rng = seed_int)
+        print(f"Downsample fraction: {fraction*100}%")
 
-    # downsample the data
-    for split in crossfold_users(pure_train_data, 1, downsample_method):
-        downsampled_train_data_builder = DatasetBuilder(split.train)
+        # downsample the data
+        for split in crossfold_users(pure_train_data, 1, downsample_method):
+            downsampled_train_data_builder = DatasetBuilder(split.train)
 
-    # creates the downsampled dataset
-    downsampled_train_data = downsampled_train_data_builder.build()
+        # creates the downsampled dataset
+        downsampled_train_data = downsampled_train_data_builder.build()
 
-    # data inspection after downsampling
-    print("\nAfter Downsampling:")
-    print("Downsampled Train Data - Number of Interactions:", downsampled_train_data.interaction_count)
-    print("Validation Data - Number of Interactions:", total_interactions(validation_data))
-    print("Final Test Data - Number of Interactions:", total_interactions(final_test_data))
+        # data inspection after downsampling
+        print("\nAfter Downsampling:")
+        print("Downsampled Train Data - Number of Interactions:", downsampled_train_data.interaction_count)
+        print("Validation Data - Number of Interactions:", total_interactions(validation_data))
+        print("Final Test Data - Number of Interactions:", total_interactions(final_test_data))
 
-    print("Downsampled Train Data - Number of Users:", downsampled_train_data.user_count)
-    print("Validation Data - Number of Users:", len(validation_data))
-    print("Final Test Data - Number of Users:", len(final_test_data))
+        print("Downsampled Train Data - Number of Users:", downsampled_train_data.user_count)
+        print("Validation Data - Number of Users:", len(validation_data))
+        print("Final Test Data - Number of Users:", len(final_test_data))
 
 
-    # function that trains the pipeline and then evaluates the results
-    def evaluate_with_ndcg(pipe: Pipeline, train_data: Dataset, valid_data: ItemListCollection):
-        # train pipeline
-        fit_pipe = pipe.clone()
-        fit_pipe.train(train_data)
-        users = valid_data.keys()
-        # generate recommendations for the validation data
-        recs = recommend(fit_pipe, users, 10)
+        # function that trains the pipeline and then evaluates the results
+        def evaluate_with_ndcg(pipe: Pipeline, train_data: Dataset, valid_data: ItemListCollection):
+            # train pipeline
+            fit_pipe = pipe.clone()
+            fit_pipe.train(train_data)
+            users = valid_data.keys()
+            # generate recommendations for the validation data
+            recs = recommend(fit_pipe, users, 10)
 
-        ran = RunAnalysis()
-        ran.add_metric(NDCG(10)) # calculates nDCG@10
-        ndcg_result = ran.measure(recs, valid_data)
-        list_metrics = ndcg_result.list_metrics()
-        # print(f"List metrics: {list_metrics}")
-        list_summary = ndcg_result.list_summary()
+            ran = RunAnalysis()
+            ran.add_metric(NDCG(10)) # calculates nDCG@10
+            ndcg_result = ran.measure(recs, valid_data)
+            list_summary = ndcg_result.list_summary()
 
-        # accesses the mean value of the ndcg measure for the recommendations
-        mean_ndcg = list_summary.iloc[0, 0]
+            # accesses the mean value of the ndcg measure for the recommendations
+            mean_ndcg = list_summary.iloc[0, 0]
 
-        return mean_ndcg
-    
-
-    k_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 130, 150, 180, 200, 220, 240, 260, 280]
-    results = []
-    best_k = None
-    best_mean_ndcg = -float('inf') # initialized to negative infinity (first ndcg value will be better)
-
-    for k_kandidate in k_values:
-        # create model and pipeline for item knn
-        model_iknn = ItemKNNScorer(k=k_kandidate)
-        pipe_iknn = topn_pipeline(model_iknn)
+            return mean_ndcg
         
-        # run the pipeline with training and validation data
-        mean_ndcg = evaluate_with_ndcg(pipe_iknn, downsampled_train_data, validation_data)
 
-        # document the results
-        results.append({'K': k_kandidate, 'Mean nDCG': mean_ndcg})
+        k_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 130, 150, 180, 200, 220, 240, 260, 280]
+        results = []
+        best_k = None
+        best_mean_ndcg = -float('inf') # initialized to negative infinity (first ndcg value will be better)
 
-        # evaluate the best k
-        if mean_ndcg > best_mean_ndcg:
-            best_mean_ndcg = mean_ndcg
-            best_k = k_kandidate
+        for k_kandidate in k_values:
+            # create model and pipeline for item knn
+            config_iknn = ItemKNNConfig(max_nbrs=k_kandidate, feedback="explicit")
+            model_iknn = ItemKNNScorer(config_iknn)
+            pipe_iknn = topn_pipeline(model_iknn)
+            
+            # run the pipeline with training and validation data
+            mean_ndcg = evaluate_with_ndcg(pipe_iknn, downsampled_train_data, validation_data)
 
-    # print the results
-    print("Results:")
-    for result in results:
-        print(f"K = {result['K']}: Mean nDCG = {result['Mean nDCG']:.4f}")
+            # document the results
+            results.append({'K': k_kandidate, 'Mean nDCG': mean_ndcg})
 
-    print(f"\nBest K: {best_k} (Mean nDCG = {best_mean_ndcg:.4f})")
+            # evaluate the best k
+            if mean_ndcg > best_mean_ndcg:
+                best_mean_ndcg = mean_ndcg
+                best_k = k_kandidate
 
-    # build the final model and pipeline for the test data
-    final_model = ItemKNNScorer(k=best_k)
-    final_pipe = topn_pipeline(final_model)
+        # print the results
+        print("Results:")
+        for result in results:
+            print(f"K = {result['K']}: Mean nDCG = {result['Mean nDCG']:.4f}")
 
-    final_mean_ndcg = evaluate_with_ndcg(final_pipe, downsampled_train_data, final_test_data)
+        print(f"\nBest K: {best_k} (Mean nDCG = {best_mean_ndcg:.4f})")
 
-    # print the results of the recommendation for the final test data
-    print(f"nDCG mean for test set: {final_mean_ndcg:.4f}")
+        # build the final model and pipeline for the test data
+        final_config = ItemKNNConfig(max_nbrs=best_k, feedback="explicit")
+        final_model = ItemKNNScorer(final_config)
+        final_pipe = topn_pipeline(final_model)
 
+        final_mean_ndcg = evaluate_with_ndcg(final_pipe, downsampled_train_data, final_test_data)
+
+        # print the results of the recommendation for the final test data
+        print(f"nDCG mean for test set: {final_mean_ndcg:.4f}")
+        results_downsampling.append({'Fraction': fraction, 'Best_k': best_k, 'Final Mean nDCG': final_mean_ndcg})
+
+    # print all Final Results of the different downsampling fractions
+    for result in results_downsampling:
+        print(f"Downsample Percentage: {result['Fraction']*100}% Best K: {result['Best_k']} Final Mean nDCG: {result['Final Mean nDCG']}")
 
 if __name__ == "__main__":
     main()
